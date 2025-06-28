@@ -157,7 +157,7 @@ add_library(openxr_demo MODULE
 #        ${CMAKE_CURRENT_SOURCE_DIR}/app/scene_engine_test_aruco.cpp
 #        ${CMAKE_CURRENT_SOURCE_DIR}/app/scene_engine_test_rpc.cpp
 #        ${CMAKE_CURRENT_SOURCE_DIR}/app/scene_marker_test_rpc.cpp
-#        ${CMAKE_CURRENT_SOURCE_DIR}/app/scene_3dtracking_test.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/app/scene_3dtracking_test.cpp
 )
 
 

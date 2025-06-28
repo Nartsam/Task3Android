@@ -2,7 +2,7 @@
 #include "scene.h"
 
 
-std::shared_ptr<IScene> createScene(const std::string &name, IApplication *app){
+std::shared_ptr<IScene> createScene(const std::string &name){
     std::shared_ptr<IScene> _createScene_empty();
     std::shared_ptr<IScene> _createScene_marker_test();
     std::shared_ptr<IScene> _createScene_engine_test_rpc();
@@ -33,10 +33,6 @@ std::shared_ptr<IScene> createScene(const std::string &name, IApplication *app){
             break;
         }
     }
-    if(ptr){
-        ptr->m_app=app;
-        ptr->m_program=app? app->m_program : nullptr;
-    }
 
     return ptr; //原来是return nullptr,可能是写错了
 }
@@ -46,7 +42,7 @@ class SceneEmpty
         :public IScene
 {
 public:
-    virtual bool initialize(const XrInstance instance, const XrSession session) {
+    virtual bool initialize() {
         return true;
     }
 };

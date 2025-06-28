@@ -106,6 +106,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public native void setNativeAssetManager(AssetManager assetManager);
+
+    public native void onAppInit();
+
     public native void onCameraImageUpdated(ByteBuffer buffer, int width, int height);
     private static final int REQUEST_CAMERA_PERMISSION = 200;
 
@@ -118,6 +121,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -127,6 +131,8 @@ public class MainActivity extends AppCompatActivity {
 
         setNativeAssetManager(this.getAssets());
         getPermission(this);
+
+        onAppInit();
     }
 
     private final TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
