@@ -113,7 +113,10 @@ static void killProcess(){
 #include"app/scene.h"
 #include"app/arengine.h"
 
-//std::shared_ptr<IOpenXrProgram> GlobalProgram=std::make_shared<IOpenXrProgram>();
+// 缓存JVM用于向Java端回传数据
+static JavaVM* gJvm = nullptr;
+static jobject gJavaObj = nullptr;
+
 cv::Mat ProcessCameraImage(const cv::Mat &input_image); //输入为BGRA,需要保证返回的cv::Mat是RGBA格式
 
 std::shared_ptr<IScene> _scene=nullptr;
@@ -127,43 +130,45 @@ Java_com_rokid_openxr_android_MainActivity_onAppInit(JNIEnv *env, jobject) {
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_rokid_openxr_android_MainActivity_onCameraImageUpdated(JNIEnv *env, jobject,jobject buffer, jint width, jint height) {
+Java_com_rokid_openxr_android_MainActivity_onCameraImageUpdated(JNIEnv *env, jobject thiz, jobject buffer, jint width, jint height){
+    if (!gJavaObj) {
+        gJavaObj = env->NewGlobalRef(thiz);      // 缓存全局引用
+        env->GetJavaVM(&gJvm);                   // 缓存 JVM
+    }
     // 获取图像像素数据
     uchar* pixels = reinterpret_cast<uchar*>(env->GetDirectBufferAddress(buffer));
     if (!pixels) return;
-    cv::Mat mat(height, width, CV_8UC4, pixels); //RGBA
+    cv::Mat mat(height + height / 2, width, CV_8UC1, pixels);
+    cv::cvtColor(mat, mat, cv::COLOR_YUV2RGBA_I420); // 也可用 COLOR_YUV2RGBA_I420
     cv::Mat image;
-    cv::cvtColor(mat,image,cv::COLOR_RGBA2BGR); //经测试，转换后的image才是颜色正常的
+    cv::cvtColor(mat,image,cv::COLOR_RGBA2BGRA); //经测试，转换后的image才是颜色正常的
+//    static uint nFrame=1;
+//    ARInputSources::FrameData fdata;
+//    fdata.img=image;
+//    fdata.timestamp=nFrame++;
+//    ARInputSources::instance()->set(fdata,-1);
+//
+//    if(_scene)
+//        _scene->processFrame(image);
+//
+//    if(image.channels()==3)
+//        cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA);
 
-    static uint nFrame=1;
-    ARInputSources::FrameData fdata;
-    fdata.img=image;
-    fdata.timestamp=nFrame++;
-    ARInputSources::instance()->set(fdata,-1);
-
-    if(_scene)
-        _scene->processFrame(image);
-
-    if(image.channels()==3)
-        cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA);
-
-    //image=ProcessCameraImage(image);
-    //----------------------------------------------------------------------
-    image.copyTo(mat); //写回数据
+    image=ProcessCameraImage(image);
+    //--------------------------- 回传image -------------------------------------
+    jobject rgbaBuffer = env->NewDirectByteBuffer(image.data, image.total() * image.elemSize()); // 创建DirectByteBuffer用于回传
+    jclass cls = env->GetObjectClass(thiz);
+    jmethodID mid = env->GetMethodID(cls, "onProcessedImage", "(Ljava/nio/ByteBuffer;II)V");  // 回调Java方法 onProcessedImage(ByteBuffer, int, int)
+    if (mid && rgbaBuffer) {
+        env->CallVoidMethod(thiz, mid, rgbaBuffer, width, height);
+    }
 }
 
-void InitApp(){
-//    GlobalProgram->InitializeApplication();
-}
 cv::Mat ProcessCameraImage(const cv::Mat &input_image){
-    static bool is_first=true;
-    if(is_first) InitApp();
-    is_first=false;
-
-
     cv::Mat image=input_image;
     cv::cvtColor(image,image,cv::COLOR_BGRA2RGB);
     cv::bitwise_not(image,image);
+
     cv::cvtColor(image,image,cv::COLOR_RGB2BGRA);
 
 

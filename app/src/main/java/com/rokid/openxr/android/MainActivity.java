@@ -72,6 +72,9 @@
 //}
 
 
+
+
+
 package com.rokid.openxr.android;
 
 import android.Manifest;
@@ -79,16 +82,19 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
-import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
+import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.hardware.camera2.*;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.Bundle;
-import android.util.Log;
-import android.util.Size;
 import android.os.Environment;
 import android.content.Intent;
 import android.provider.Settings;
 import android.net.Uri;
+import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
 import android.widget.ImageView;
@@ -105,27 +111,24 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     static {
-//        System.loadLibrary("openxr_loader");
         System.loadLibrary("openxr_demo");
     }
 
     public native void setNativeAssetManager(AssetManager assetManager);
-
     public native void onAppInit();
-
     public native void onCameraImageUpdated(ByteBuffer buffer, int width, int height);
-    private static final int REQUEST_CAMERA_PERMISSION = 200;
 
+    private static final int REQUEST_CAMERA_PERMISSION = 200;
     private TextureView textureView1;
     private ImageView imageView2;
 
     private CameraDevice cameraDevice;
     private CameraCaptureSession cameraCaptureSession;
     private CaptureRequest.Builder captureRequestBuilder;
+    private ImageReader imageReader;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -146,41 +149,49 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
-
         @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) { return false; }
-
         @Override public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-            Bitmap bitmap = textureView1.getBitmap();
-            if (bitmap != null) {
-                Bitmap mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-
-                ByteBuffer buffer = ByteBuffer.allocateDirect(mutable.getByteCount());
-                mutable.copyPixelsToBuffer(buffer);
-
-                onCameraImageUpdated(buffer, bitmap.getWidth(), bitmap.getHeight());
-
-                buffer.rewind();
-                mutable.copyPixelsFromBuffer(buffer);
-                imageView2.setImageBitmap(mutable);
-            }
+//            Bitmap bitmap = textureView1.getBitmap();
+//            if (bitmap != null) {
+//                Bitmap mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+//
+//                ByteBuffer buffer = ByteBuffer.allocateDirect(mutable.getByteCount());
+//                mutable.copyPixelsToBuffer(buffer);
+//
+//                onCameraImageUpdated(buffer, bitmap.getWidth(), bitmap.getHeight());
+//
+//                buffer.rewind();
+//                mutable.copyPixelsFromBuffer(buffer);
+//                imageView2.setImageBitmap(mutable);
+//            }
         }
     };
 
     private void openCamera() {
         CameraManager manager = (CameraManager) getSystemService(CAMERA_SERVICE);
         try {
-            String cameraId = manager.getCameraIdList()[0]; // 使用后置摄像头
-
+            String cameraId = manager.getCameraIdList()[0];
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
                 return;
             }
-
             manager.openCamera(cameraId, stateCallback, null);
-
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+    }
+    public void onProcessedImage(ByteBuffer rgbaBuffer, int width, int height) {
+        runOnUiThread(() -> {
+            rgbaBuffer.rewind();
+            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            bitmap.copyPixelsFromBuffer(rgbaBuffer);
+
+            Matrix matrix = new Matrix();
+            matrix.postRotate(90); // 旋转90度才是正常显示的图像，原因未知
+
+            Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+            imageView2.setImageBitmap(rotated);
+        });
     }
 
     private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
@@ -203,12 +214,50 @@ public class MainActivity extends AppCompatActivity {
         try {
             SurfaceTexture texture = textureView1.getSurfaceTexture();
             texture.setDefaultBufferSize(640, 480);
-            Surface surface = new Surface(texture);
+            Surface previewSurface = new Surface(texture);
+            // ======================== 这里修改获取的相机图像尺寸 =======================
+            //好像 YUV 格式的图像需要width和height之间满足一定要求，不能随意设修改大小
+            imageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 2);
+            imageReader.setOnImageAvailableListener(reader -> {
+                Image image = null;
+                try {
+                    image = reader.acquireLatestImage();
+                    if (image != null) {
+                        int width = image.getWidth();
+                        int height = image.getHeight();
+
+                        Image.Plane[] planes = image.getPlanes();
+                        ByteBuffer yBuffer = planes[0].getBuffer();
+                        ByteBuffer uBuffer = planes[1].getBuffer();
+                        ByteBuffer vBuffer = planes[2].getBuffer();
+
+                        int ySize = yBuffer.remaining();
+                        int uSize = uBuffer.remaining();
+                        int vSize = vBuffer.remaining();
+
+                        // 分配 YUV420 数据缓冲区 (NV21/I420 都可以)
+                        ByteBuffer yuvBuffer = ByteBuffer.allocateDirect(ySize + uSize + vSize);
+
+                        yuvBuffer.put(yBuffer);
+                        yuvBuffer.put(uBuffer);
+                        yuvBuffer.put(vBuffer);
+                        yuvBuffer.rewind();
+
+                        // 传递 YUV 数据给 C++，由 C++ 做格式转换
+                        onCameraImageUpdated(yuvBuffer, width, height);
+                    }
+                } finally {
+                    if (image != null) image.close();
+                }
+            }, null);
+
+            Surface imageSurface = imageReader.getSurface();
 
             captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            captureRequestBuilder.addTarget(surface);
+            captureRequestBuilder.addTarget(previewSurface);
+            captureRequestBuilder.addTarget(imageSurface);
 
-            cameraDevice.createCaptureSession(Arrays.asList(surface), new CameraCaptureSession.StateCallback() {
+            cameraDevice.createCaptureSession(Arrays.asList(previewSurface, imageSurface), new CameraCaptureSession.StateCallback() {
                 @Override public void onConfigured(@NonNull CameraCaptureSession session) {
                     if (cameraDevice == null) return;
                     cameraCaptureSession = session;
@@ -229,7 +278,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 权限请求回调
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -243,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
         }
         if (requestCode == 100) {
             for (int i = 0; i < permissions.length; i++) {
-                if (permissions[i].equals(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                if (permissions[i].equals(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                     if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
                         Log.i("AndroidTest", "Successfully applied for storage permission!");
                     } else {
@@ -265,15 +313,15 @@ public class MainActivity extends AppCompatActivity {
 
     private List<String> checkPermission(Context context, String[] checkList) {
         List<String> list = new ArrayList<>();
-        for (int i = 0; i < checkList.length; i++) {
-            if (PackageManager.PERMISSION_GRANTED != ActivityCompat.checkSelfPermission(context, checkList[i])) {
-                list.add(checkList[i]);
+        for (String s : checkList) {
+            if (PackageManager.PERMISSION_GRANTED != ActivityCompat.checkSelfPermission(context, s)) {
+                list.add(s);
             }
         }
         return list;
     }
 
-    private void requestPermission(Activity activity, String requestPermissionList[]) {
+    private void requestPermission(Activity activity, String[] requestPermissionList) {
         ActivityCompat.requestPermissions(activity, requestPermissionList, 100);
     }
 
@@ -290,12 +338,10 @@ public class MainActivity extends AppCompatActivity {
                     Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
                     startActivity(intent);
                 }
-            }
-            else {
+            } else {
                 Log.i("AndroidTest", "已获得 MANAGE_EXTERNAL_STORAGE 权限");
             }
-        }
-        else { // 对于 Android 10 及以下，使用传统的权限申请方式
+        } else {
             String[] checkList = new String[]{
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
                     Manifest.permission.READ_EXTERNAL_STORAGE
@@ -308,5 +354,4 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
 }
