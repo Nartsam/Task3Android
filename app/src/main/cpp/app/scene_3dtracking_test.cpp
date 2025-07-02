@@ -30,15 +30,15 @@ namespace {
         std::shared_ptr<ARApp> app = std::make_shared<ARApp>();
         app->init(appName, appData, sceneData, modules);
 
-        std::string file=std::string(MakeSdcardPath("Download/3d/box1/box1.3ds"));
-        if(ff::pathExist(file))
-        {
-            FILE *fp=fopen(file.c_str(),"rb");
-            file=strerror(errno);
-            if(fp){
-                fclose(fp);
-            }
-        }
+//        std::string file=std::string(MakeSdcardPath("Download/3d/box1/box1.3ds"));
+//        if(ff::pathExist(file))
+//        {
+//            FILE *fp=fopen(file.c_str(),"rb");
+//            file=strerror(errno);
+//            if(fp){
+//                fclose(fp);
+//            }
+//        }
 
         std::any cmdData = std::string(MakeSdcardPath("Download/3d/box1/box1.3ds"));
         app->call("ObjectTracking2", ObjectTracking2::CMD_SET_MODEL, cmdData);
@@ -61,6 +61,26 @@ namespace {
             if (_eng) {
                 auto _res=_eng->sceneData->getData("ObjectTracking2Result");
                 auto _inputs=_eng->sceneData->getData("ARInputs");
+
+                if (_res.has_value())
+                {
+                    ObjectTracking2::Result res = std::any_cast<ObjectTracking2::Result>(_res);
+
+                    Mat dimg = img.clone(); //frameDataPtr->image.front();
+                    //res.showResult(dimg);
+                    for (auto& obj : res.objPoses)
+                    {
+                        std::vector<std::vector<cv::Point>> vpts(1);
+                        vpts[0] = obj.contourProjected;
+                        cv::drawContours(dimg, vpts, -1, Scalar(255, 0, 0), 2);
+
+//                        auto rect=cv::getBoundingBox2D(obj.contourProjected);
+//                        rect= rectOverlapped(rect, Rect(0,0,dimg.cols,dimg.rows));
+//                        if(!rect.empty())
+//                            setMem(dimg(rect),0);
+                    }
+                    img=dimg;
+                }
             }
         }
 

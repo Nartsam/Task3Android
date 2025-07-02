@@ -1,4 +1,5 @@
 #include"arengine.h"
+#include"CVRender/cvrm.h"
 using namespace cv;
 
 ARInputSources* ARInputSources::instance() {
@@ -37,20 +38,27 @@ int ARInputs::Update(AppData &appData, SceneData &sceneData, FrameDataPtr frameD
     {
         cv::Mat img=frameData.img, dst;
 
-        if(_udistMap1.empty())
+        if(false)
         {
-            cv::Matx33f K = { 281.60213015, 0.,  318.69481832,  0., 281.37377039, 243.6907021, 0., 0., 1. };
-            cv::Mat distCoeffs = (cv::Mat_<float>(1, 4) << 0.11946399, 0.06202764, -0.28880297, 0.21420146);
+            if(_udistMap1.empty())
+            {
+                cv::Matx33f K = { 281.60213015, 0.,  318.69481832,  0., 281.37377039, 243.6907021, 0., 0., 1. };
+                cv::Mat distCoeffs = (cv::Mat_<float>(1, 4) << 0.11946399, 0.06202764, -0.28880297, 0.21420146);
 
-            Mat newK;
-            cv::fisheye::estimateNewCameraMatrixForUndistortRectify(K, distCoeffs, img.size(), noArray(), newK, 0.f);
+                Mat newK;
+                cv::fisheye::estimateNewCameraMatrixForUndistortRectify(K, distCoeffs, img.size(), noArray(), newK, 0.f);
 
-            cv::fisheye::initUndistortRectifyMap(K, distCoeffs, noArray(), newK, img.size(), CV_16SC2, _udistMap1, _udistMap2);
-            _camK=newK;
+                cv::fisheye::initUndistortRectifyMap(K, distCoeffs, noArray(), newK, img.size(), CV_16SC2, _udistMap1, _udistMap2);
+                _camK=newK;
+            }
+
+            cv::remap(img, dst, _udistMap1, _udistMap2, INTER_LINEAR);
+            img=dst;
         }
-
-        cv::remap(img, dst, _udistMap1, _udistMap2, INTER_LINEAR);
-        img=dst;
+        else
+        {
+            _camK=cvrm::defaultK(img.size(),1.5f);
+        }
 
         frameDataPtr->image.push_back(img);
         frameDataPtr->colorCameraMatrix=_camK;

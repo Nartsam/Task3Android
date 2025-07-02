@@ -111,6 +111,7 @@ static void killProcess(){
 //==========================================================================================================
 #include"opencv2/opencv.hpp"
 #include"app/scene.h"
+#include"app/arengine.h"
 
 //std::shared_ptr<IOpenXrProgram> GlobalProgram=std::make_shared<IOpenXrProgram>();
 cv::Mat ProcessCameraImage(const cv::Mat &input_image); //输入为BGRA,需要保证返回的cv::Mat是RGBA格式
@@ -134,10 +135,19 @@ Java_com_rokid_openxr_android_MainActivity_onCameraImageUpdated(JNIEnv *env, job
     cv::Mat image;
     cv::cvtColor(mat,image,cv::COLOR_RGBA2BGR); //经测试，转换后的image才是颜色正常的
 
-//    if(_scene)
-//        _scene->processFrame(image);
+    static uint nFrame=1;
+    ARInputSources::FrameData fdata;
+    fdata.img=image;
+    fdata.timestamp=nFrame++;
+    ARInputSources::instance()->set(fdata,-1);
 
-    image=ProcessCameraImage(image);
+    if(_scene)
+        _scene->processFrame(image);
+
+    if(image.channels()==3)
+        cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA);
+
+    //image=ProcessCameraImage(image);
     //----------------------------------------------------------------------
     image.copyTo(mat); //写回数据
 }
