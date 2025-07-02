@@ -67,7 +67,6 @@ static jmethodID s_mid;
 extern "C" JNIEXPORT
 void JNICALL Java_com_rokid_openxr_android_MainActivity_setNativeAssetManager(JNIEnv *env, jobject instance, jobject assetManager) {
     //s_env = env;
-    infof("====================================== manager ==============================================");
     s_nativeasset = AAssetManager_fromJava(env, assetManager);
     if (s_nativeasset == nullptr) {
         errorf("s_nativeasset is nullptr!");

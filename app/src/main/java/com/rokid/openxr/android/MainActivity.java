@@ -85,6 +85,10 @@ import android.hardware.camera2.*;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
+import android.os.Environment;
+import android.content.Intent;
+import android.provider.Settings;
+import android.net.Uri;
 import android.view.Surface;
 import android.view.TextureView;
 import android.widget.ImageView;
@@ -241,9 +245,9 @@ public class MainActivity extends AppCompatActivity {
             for (int i = 0; i < permissions.length; i++) {
                 if (permissions[i].equals(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                     if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-                        Log.i("RK-Openxr-App", "Successfully applied for storage permission!");
+                        Log.i("AndroidTest", "Successfully applied for storage permission!");
                     } else {
-                        Log.e("RK-Openxr-App", "Failed to apply for storage permission!");
+                        Log.e("AndroidTest", "Failed to apply for storage permission!");
                     }
                 }
             }
@@ -274,12 +278,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getPermission(Activity activity) {
-        String[] checkList = new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.MANAGE_EXTERNAL_STORAGE}; //2025-06-17 添加MANAGE_EXTERNAL_STORAGE权限检查
-        List<String> needRequestList = checkPermission(activity, checkList);
-        if (needRequestList.isEmpty()) {
-            Log.i("RK-Openxr-App", "No need to apply for storage permission!");
-        } else {
-            requestPermission(activity, needRequestList.toArray(new String[needRequestList.size()]));
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                Log.i("AndroidTest", "请授予“所有文件访问”权限");
+                Toast.makeText(this, "请授予“所有文件访问”权限", Toast.LENGTH_LONG).show();
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    startActivity(intent);
+                }
+            }
+            else {
+                Log.i("AndroidTest", "已获得 MANAGE_EXTERNAL_STORAGE 权限");
+            }
+        }
+        else { // 对于 Android 10 及以下，使用传统的权限申请方式
+            String[] checkList = new String[]{
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+            };
+            List<String> needRequestList = checkPermission(activity, checkList);
+            if (needRequestList.isEmpty()) {
+                Log.i("AndroidTest", "No need to apply for storage permission!");
+            } else {
+                requestPermission(activity, needRequestList.toArray(new String[0]));
+            }
         }
     }
+
 }

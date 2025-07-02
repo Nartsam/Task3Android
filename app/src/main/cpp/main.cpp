@@ -120,7 +120,7 @@ std::shared_ptr<IScene> _scene=nullptr;
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_rokid_openxr_android_MainActivity_onAppInit(JNIEnv *env, jobject) {
-    _scene= createScene("3dtracking_test");
+    _scene=createScene("3dtracking_test");
     _scene->initialize();
 }
 
@@ -134,10 +134,10 @@ Java_com_rokid_openxr_android_MainActivity_onCameraImageUpdated(JNIEnv *env, job
     cv::Mat image;
     cv::cvtColor(mat,image,cv::COLOR_RGBA2BGR); //经测试，转换后的image才是颜色正常的
 
-    if(_scene)
-        _scene->processFrame(image);
+//    if(_scene)
+//        _scene->processFrame(image);
 
-    //image=ProcessCameraImage(image);
+    image=ProcessCameraImage(image);
     //----------------------------------------------------------------------
     image.copyTo(mat); //写回数据
 }

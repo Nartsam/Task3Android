@@ -35,8 +35,9 @@ namespace {
         {
             FILE *fp=fopen(file.c_str(),"rb");
             file=strerror(errno);
-            if(fp)
+            if(fp){
                 fclose(fp);
+            }
         }
 
         std::any cmdData = std::string(MakeSdcardPath("Download/3d/box1/box1.3ds"));

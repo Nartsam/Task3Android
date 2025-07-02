@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>  <!-- 申请文件管理器权限，以便读取设备中的非媒体文件，可能需要手动在设备中授予App该权限 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>  <!-- 申请文件管理器权限，以便读取设备中的非媒体文件，可能需要手动在设备中授予App该权限 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- If building externally with the OpenXR loader AAR, this would be merged in automatically. -->
