@@ -9,6 +9,10 @@
 #include"utilsmym.hpp"
 using namespace cv;
 
+#include"re3d/base/base.h"
+#include"CVRender/cvrmodel.h"
+using namespace cv;
+
 //static glm::mat4 ViewMat; //保存相机位姿，眼镜的Marker检测用
 
 namespace {
@@ -30,17 +34,21 @@ namespace {
         std::shared_ptr<ARApp> app = std::make_shared<ARApp>();
         app->init(appName, appData, sceneData, modules);
 
-//        std::string file=std::string(MakeSdcardPath("Download/3d/box1/box1.3ds"));
-//        if(ff::pathExist(file))
-//        {
-//            FILE *fp=fopen(file.c_str(),"rb");
-//            file=strerror(errno);
-//            if(fp){
-//                fclose(fp);
-//            }
-//        }
+        std::string file=std::string(MakeSdcardPath("Download/3d/box1/box1.ply"));
+        if(ff::pathExist(file))
+        {
+            FILE *fp=fopen(file.c_str(),"rb");
+            if(fp){
+                fclose(fp);
+            }
+            else
+                file=strerror(errno);
+        }
+        //CVRModel model(file);
+        //auto center=model.getCenter();
+        //printf("%.2f",center[0]);
 
-        std::any cmdData = std::string(MakeSdcardPath("Download/3d/box1/box1.3ds"));
+        std::any cmdData = std::string(MakeSdcardPath("Download/3d/box1/box1.ply"));
         app->call("ObjectTracking2", ObjectTracking2::CMD_SET_MODEL, cmdData);
 
         return app;
@@ -67,9 +75,22 @@ namespace {
                     ObjectTracking2::Result res = std::any_cast<ObjectTracking2::Result>(_res);
 
                     Mat dimg = img.clone(); //frameDataPtr->image.front();
+//                    res.showResult(dimg);
                     //res.showResult(dimg);
                     for (auto& obj : res.objPoses)
                     {
+                        auto modelPtr = res.modelSet->getModel(obj.modelIndex);
+                        if (modelPtr)
+                        {
+                            CVRModel& m3d = modelPtr->get3DModel();
+                            auto center = m3d.getCenter();
+
+                            auto t = (obj.R * center + obj.t);
+
+                            std::string text = cv::format("[%.2f,%.2f,%.2f]", t[0], t[1], t[2]);
+                            cv::putText(dimg, text, cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, 1.5, cv::Scalar(255, 128, 0), 2, cv::LINE_AA);
+                        }
+
                         std::vector<std::vector<cv::Point>> vpts(1);
                         vpts[0] = obj.contourProjected;
                         cv::drawContours(dimg, vpts, -1, Scalar(255, 0, 0), 2);

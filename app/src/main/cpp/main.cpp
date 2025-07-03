@@ -139,22 +139,26 @@ Java_com_rokid_openxr_android_MainActivity_onCameraImageUpdated(JNIEnv *env, job
     uchar* pixels = reinterpret_cast<uchar*>(env->GetDirectBufferAddress(buffer));
     if (!pixels) return;
     cv::Mat mat(height + height / 2, width, CV_8UC1, pixels);
-    cv::cvtColor(mat, mat, cv::COLOR_YUV2RGBA_I420); // 也可用 COLOR_YUV2RGBA_I420
     cv::Mat image;
-    cv::cvtColor(mat,image,cv::COLOR_RGBA2BGRA); //经测试，转换后的image才是颜色正常的
-//    static uint nFrame=1;
-//    ARInputSources::FrameData fdata;
-//    fdata.img=image;
-//    fdata.timestamp=nFrame++;
-//    ARInputSources::instance()->set(fdata,-1);
-//
-//    if(_scene)
-//        _scene->processFrame(image);
-//
-//    if(image.channels()==3)
-//        cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA);
+    cv::cvtColor(mat, image, cv::COLOR_YUV2BGR_I420); // 也可用 COLOR_YUV2RGBA_I420
 
-    image=ProcessCameraImage(image);
+    //cv::Mat image;
+    //cv::cvtColor(mat,image,cv::COLOR_RGBA2BGRA); //经测试，转换后的image才是颜色正常的
+
+    static uint nFrame=1;
+    ARInputSources::FrameData fdata;
+    fdata.img=image;
+    fdata.timestamp=nFrame++;
+    ARInputSources::instance()->set(fdata,-1);
+
+    if(_scene)
+        _scene->processFrame(image);
+
+    if(image.channels()==3)
+        cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA);
+
+    //image=ProcessCameraImage(image);
+
     //--------------------------- 回传image -------------------------------------
     jobject rgbaBuffer = env->NewDirectByteBuffer(image.data, image.total() * image.elemSize()); // 创建DirectByteBuffer用于回传
     jclass cls = env->GetObjectClass(thiz);
@@ -166,12 +170,11 @@ Java_com_rokid_openxr_android_MainActivity_onCameraImageUpdated(JNIEnv *env, job
 
 cv::Mat ProcessCameraImage(const cv::Mat &input_image){
     cv::Mat image=input_image;
-    cv::cvtColor(image,image,cv::COLOR_BGRA2RGB);
+    //cv::cvtColor(image,image,cv::COLOR_BGRA2RGB);
     cv::bitwise_not(image,image);
 
-    cv::cvtColor(image,image,cv::COLOR_RGB2BGRA);
+    //cv::cvtColor(image,image,cv::COLOR_RGB2BGRA);
+    //cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA); //返回值要转换回RGBA
 
-
-    cv::cvtColor(image,image,cv::COLOR_BGRA2RGBA); //返回值要转换回RGBA
     return image;
 }
